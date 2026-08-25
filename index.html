@@ -300,6 +300,44 @@
       <div class="field-grid" id="negocio-fields"></div>
     </div>
 
+    <div class="card">
+      <h2>Ajustes generales de tu palta</h2>
+      <p class="sub" style="margin-bottom:14px;">Estos valores son únicos y se aplican a todos los tipos de palta de tu tabla — cámbialos aquí cuando cambien tus condiciones reales.</p>
+      <div class="field-grid" style="grid-template-columns: 1fr 1fr;">
+        <div class="field">
+          <label for="merma-global">Merma (%)</label>
+          <input id="merma-global" type="number" min="0" max="99" />
+        </div>
+        <div class="field">
+          <label for="precio-congelada">Precio palta congelada ($ por kilo)</label>
+          <input id="precio-congelada" type="number" min="0" />
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Tipos de palta y precios <span class="h2-note">(edita libremente)</span></h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Precio calle ($)</th>
+              <th>Kilos reales</th>
+              <th>Valor kilo real</th>
+              <th>Diferencia x kilo</th>
+              <th>Formato (g)</th>
+              <th>Precio congelada ($/kg) <span title="Se edita en la tarjeta 'Ajustes generales de tu palta'">ⓘ</span></th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="table-body"></tbody>
+        </table>
+      </div>
+      <button class="add-row-btn" id="add-row-btn">+ Agregar tipo de palta</button>
+      <p class="note">Kilos reales = Formato − (Formato × Merma). Valor kilo real = (Precio calle ÷ Kilos reales) × Formato. Diferencia x kilo = Valor kilo real − Precio congelada. El formato (1000 g) y la merma son los mismos para todos los tipos.</p>
+    </div>
+
     <div class="toggle" id="toggle">
       <button data-periodo="mensual">Mensual</button>
       <button data-periodo="anual">Anual</button>
@@ -317,49 +355,18 @@
       <div class="compare-list" id="compare-list"></div>
       <p class="compare-note">Muestra el gasto total del período usando cada tipo de palta fresca de tu tabla, más la palta congelada (con el precio de la fila en uso). El más barato queda destacado.</p>
     </div>
-
-    <div class="card">
-      <h2>Precio de tu palta congelada</h2>
-      <p class="sub" style="margin-bottom:14px;">Este precio es único y se usa para todas las comparaciones — cámbialo aquí cuando tu proveedor suba o baje precio.</p>
-      <div class="field" style="max-width:260px;">
-        <label for="precio-congelada">Precio actual ($ por kilo)</label>
-        <input id="precio-congelada" type="number" min="0" />
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>Tipos de palta y precios <span class="h2-note">(edita libremente)</span></h2>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Nombre</th>
-              <th>Precio calle ($)</th>
-              <th>Formato (g)</th>
-              <th>Merma (%)</th>
-              <th>Precio congelada ($/kg) <span title="Se edita en la tarjeta 'Precio de tu palta congelada'">ⓘ</span></th>
-              <th>Kilos reales</th>
-              <th>Valor kilo real</th>
-              <th>Diferencia x kilo</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody id="table-body"></tbody>
-        </table>
-      </div>
-      <button class="add-row-btn" id="add-row-btn">+ Agregar tipo de palta</button>
-      <p class="note">Kilos reales = Formato − (Formato × Merma). Valor kilo real = (Precio calle ÷ Kilos reales) × Formato. Diferencia x kilo = Valor kilo real − Precio congelada.</p>
-    </div>
   </div>
 
 <script>
   // ---------- state ----------
   let rows = [
-    { id: "r1", nombre: "Palta Hass Especial", precioCalle: 4200, formatoG: 1000, mermaPct: 40, congelado: 4500 },
-    { id: "r2", nombre: "Palta Hass Primera",  precioCalle: 4000, formatoG: 1000, mermaPct: 40, congelado: 4500 },
-    { id: "r3", nombre: "Palta Hass Segunda",  precioCalle: 3600, formatoG: 1000, mermaPct: 40, congelado: 4500 },
-    { id: "r4", nombre: "Palta Hass Tercera",  precioCalle: 3300, formatoG: 1000, mermaPct: 40, congelado: 4500 },
+    { id: "r1", nombre: "Palta Hass Especial", precioCalle: 4200 },
+    { id: "r2", nombre: "Palta Hass Primera",  precioCalle: 4000 },
+    { id: "r3", nombre: "Palta Hass Segunda",  precioCalle: 3600 },
+    { id: "r4", nombre: "Palta Hass Tercera",  precioCalle: 3300 },
   ];
+  const FORMATO_FIJO_G = 1000;
+  let mermaGlobal = 40; // %, aplica a todos los tipos de palta
   let nextId = 5;
   let selectedId = "r3";
   let sanguches = 0;
@@ -383,14 +390,14 @@
     return d.innerHTML;
   }
   function computeRow(r) {
-    const merma = Math.min(Math.max(Number(r.mermaPct) || 0, 0), 99) / 100;
-    const formatoG = Number(r.formatoG) || 0;
+    const merma = Math.min(Math.max(Number(mermaGlobal) || 0, 0), 99) / 100;
+    const formatoG = FORMATO_FIJO_G;
     const precioCalle = Number(r.precioCalle) || 0;
     const congelado = Number(precioCongelada) || 0;
     const kilosReales = formatoG * (1 - merma);
     const valorKiloReal = kilosReales > 0 ? (precioCalle / kilosReales) * formatoG : 0;
     const diferencia = valorKiloReal - congelado;
-    return { ...r, kilosReales, valorKiloReal, diferencia, congelado };
+    return { ...r, formatoG, kilosReales, valorKiloReal, diferencia, congelado };
   }
   function getComputedRows() { return rows.map(computeRow); }
   function getSelected() {
@@ -454,11 +461,11 @@
             <input id="sanguches" type="number" min="0" />
           </div>
           <div class="field">
-            <label for="tipo-palta">¿Qué tipo de palta utilizas aprox.?</label>
+            <label for="tipo-palta">¿Qué tipo de palta generalmente utilizas?</label>
             <select id="tipo-palta"></select>
           </div>
           <div class="field">
-            <label for="gramos">¿Cuántos gramos le agregas aprox.?</label>
+            <label for="gramos">¿Cuántos gramos le agregas?</label>
             <input id="gramos" type="number" min="0" />
           </div>`;
       } else {
@@ -468,7 +475,7 @@
             <input id="cantidad" type="number" min="0" />
           </div>
           <div class="field">
-            <label for="tipo-palta">¿Qué tipo de palta utilizas aprox.?</label>
+            <label for="tipo-palta">¿Qué tipo de palta generalmente utilizas?</label>
             <select id="tipo-palta"></select>
           </div>`;
       }
@@ -509,6 +516,10 @@
     const precioCongeladaEl = document.getElementById("precio-congelada");
     if (document.activeElement !== precioCongeladaEl) precioCongeladaEl.value = precioCongelada;
     precioCongeladaEl.oninput = (e) => { precioCongelada = e.target.value; render(); };
+
+    const mermaGlobalEl = document.getElementById("merma-global");
+    if (document.activeElement !== mermaGlobalEl) mermaGlobalEl.value = mermaGlobal;
+    mermaGlobalEl.oninput = (e) => { mermaGlobal = e.target.value; render(); };
 
     // hero
     document.getElementById("hero").innerHTML = `
@@ -578,12 +589,11 @@
           ${r.id === selectedId ? '<span class="in-use-tag">en uso</span>' : ""}
         </td>
         <td><input type="text" inputmode="decimal" data-field="precioCalle" value="${r.precioCalle}" /></td>
-        <td><input type="text" inputmode="decimal" data-field="formatoG" value="${r.formatoG}" /></td>
-        <td><input type="text" inputmode="decimal" data-field="mermaPct" value="${r.mermaPct}" /></td>
-        <td class="computed">${fmtCLP(r.congelado)}</td>
         <td class="computed">${(r.kilosReales / 1000).toLocaleString("es-CL", { maximumFractionDigits: 2 })} kg</td>
         <td class="computed">${fmtCLP(r.valorKiloReal)}</td>
         <td class="computed ${r.diferencia > 0 ? "diff-positive" : ""}">${fmtCLP(r.diferencia)}</td>
+        <td class="computed">${r.formatoG} g</td>
+        <td class="computed">${fmtCLP(r.congelado)}</td>
         <td><div class="row-actions"><button class="icon-btn" data-action="remove" title="Eliminar fila">×</button></div></td>
       </tr>`
       )
@@ -601,7 +611,7 @@
     });
     document.getElementById("add-row-btn").onclick = () => {
       const id = "r" + nextId++;
-      rows.push({ id, nombre: "Nueva palta", precioCalle: 4000, formatoG: 1000, mermaPct: 40, congelado: 4500 });
+      rows.push({ id, nombre: "Nueva palta", precioCalle: 4000 });
       render();
     };
     document.querySelectorAll("#table-body tr").forEach((tr) => {
